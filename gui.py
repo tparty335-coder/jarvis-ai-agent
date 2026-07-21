@@ -166,6 +166,11 @@ class ChatPage(QWidget):
         self.stop_btn.setStyleSheet("background: #e74c3c; color: white; font-weight: bold; padding: 10px; border-radius: 4px;")
         row.addWidget(self.stop_btn)
         
+        self.silent_btn = QPushButton("🔇 Silent")
+        self.silent_btn.setCheckable(True)
+        self.silent_btn.setStyleSheet("background: #1f2833; color: #c5c6c7; font-weight: bold; padding: 10px; border-radius: 4px; border: 1px solid #45a29e;")
+        row.addWidget(self.silent_btn)
+        
         layout.addLayout(row)
 
     def log_chat(self, text):
@@ -350,7 +355,10 @@ class MainWindow(QMainWindow):
         self.chat_page.send_btn.clicked.connect(self.send_message)
         self.chat_page.voice_btn.clicked.connect(self.start_listening)
         self.chat_page.stop_btn.clicked.connect(self.stop_speaking)
+        self.chat_page.silent_btn.toggled.connect(self._toggle_silent)
         self.chat_page.input_field.returnPressed.connect(self.send_message)
+        
+        self.silent_mode = False
         
         self._load_existing_key()
 
@@ -414,11 +422,25 @@ class MainWindow(QMainWindow):
             else:
                 greeting = "مرحباً! أنا جارفيس، كيف أقدر أساعدك؟"
                 self.chat_page.log_chat(f"🧠 Jarvis:\n{greeting}")
-                self.speak(greeting)
+                if not self.silent_mode:
+                    self.speak(greeting)
         else:
             self.chat_page.add_timeline_event(f"Failed to load agent: {init_error}", "❌")
             
+    def _toggle_silent(self, checked):
+        self.silent_mode = checked
+        if checked:
+            self.chat_page.silent_btn.setStyleSheet("background: #e74c3c; color: white; font-weight: bold; padding: 10px; border-radius: 4px;")
+            self.chat_page.silent_btn.setText("🔇 Silent ON")
+            self.chat_page.add_timeline_event("Silent mode ON — no voice output.", "🔇")
+        else:
+            self.chat_page.silent_btn.setStyleSheet("background: #1f2833; color: #c5c6c7; font-weight: bold; padding: 10px; border-radius: 4px; border: 1px solid #45a29e;")
+            self.chat_page.silent_btn.setText("🔇 Silent")
+            self.chat_page.add_timeline_event("Silent mode OFF — voice output enabled.", "🔊")
+
     def speak(self, text):
+        if self.silent_mode:
+            return  # Skip TTS entirely in silent mode
         self.chat_page.orb.set_mode("speaking")
         self.chat_page.status_lbl.setText("🔊 Speaking...")
         self.chat_page.stop_btn.setVisible(True)
