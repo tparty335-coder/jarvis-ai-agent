@@ -1,63 +1,119 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 title Jarvis Agent - Installation
-
-echo === Jarvis Agent Installation ===
+echo.
+echo ============================================
+echo   Jarvis AI Agent - Full Setup
+echo ============================================
 echo.
 
-where python >nul 2>nul
-if errorlevel 1 goto nopython
+:: ============================================
+:: Find or Auto-Install Python
+:: ============================================
+set PYTHON_EXE=
 
-echo [OK] Python found.
+:: Try py launcher
+py -3 -c "import sys; sys.exit(0)" >nul 2>&1
+if %errorlevel%==0 (
+    set PYTHON_EXE=py -3
+    goto :havepython
+)
 
-if exist venv goto skipvenv
-echo Creating virtual environment...
-python -m venv venv
+:: Try python in PATH
+python -c "import sys; sys.exit(0)" >nul 2>&1
+if %errorlevel%==0 (
+    set PYTHON_EXE=python
+    goto :havepython
+)
 
-:skipvenv
+:: Search common paths
+for %%p in (
+    "%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
+    "%LOCALAPPDATA%\Programs\Python\Python310\python.exe"
+) do (
+    if exist %%~p (
+        set "PYTHON_EXE=%%~p"
+        goto :havepython
+    )
+)
+
+:: Auto-download Python
+echo   [!] Python not found. Auto-downloading Python 3.12...
+set "PYTHON_INSTALLER=%TEMP%\python-3.12.8-amd64.exe"
+curl -L -o "%PYTHON_INSTALLER%" "https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe" --progress-bar
+if errorlevel 1 (
+    echo   [ERROR] Download failed. Install Python manually from https://python.org
+    pause
+    exit /b 1
+)
+echo   Installing Python 3.12 silently...
+"%PYTHON_INSTALLER%" /quiet InstallAllUsers=0 PrependPath=1 Include_pip=1 Include_launcher=1
+del "%PYTHON_INSTALLER%" 2>nul
+set "PATH=%LOCALAPPDATA%\Programs\Python\Python312\;%LOCALAPPDATA%\Programs\Python\Python312\Scripts\;%PATH%"
+
+if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
+    set "PYTHON_EXE=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+) else (
+    echo   [ERROR] Python install failed. Please install manually.
+    pause
+    exit /b 1
+)
+
+:havepython
+echo [OK] Python found: %PYTHON_EXE%
+%PYTHON_EXE% --version
+
+:: Create venv if missing
+if not exist venv (
+    echo Creating virtual environment...
+    %PYTHON_EXE% -m venv venv
+    if errorlevel 1 goto venvfail
+    echo [OK] venv created.
+)
+
+:: Activate venv
 call venv\Scripts\activate.bat
 
-echo Installing core requirements...
+:: Upgrade pip silently
 python -m pip install --upgrade pip -q
-pip install -r requirements-core.txt -q
+
+:: Install everything needed for GUI + Gemini
+echo.
+echo Installing core packages (PyQt6, Gemini, SpeechRecognition, pyttsx3)...
+pip install PyQt6 google-generativeai SpeechRecognition pyttsx3 python-dotenv -q
 if errorlevel 1 goto installfailed
-echo [OK] Core requirements installed.
+echo [OK] Core packages installed.
+
+:: Install PyAudio separately (may fail on some machines - that's OK)
+pip install pyaudio -q 2>nul
+echo [OK] Audio support installed (or skipped if not available).
+
+:: Optional packages
+echo.
+set /p install_office=Install Office support (Word/Excel/PowerPoint)? [y/n]: 
+if /i "%install_office%"=="y" pip install python-docx openpyxl python-pptx -q
+
+set /p install_files=Install safe file operations? [y/n]: 
+if /i "%install_files%"=="y" pip install send2trash -q
 
 echo.
-set /p install_gmail=Install Gmail support? [y/n]: 
-if /i "%install_gmail%"=="y" pip install -r requirements-gmail.txt -q
-
-set /p install_telegram=Install Telegram bot support? [y/n]: 
-if /i "%install_telegram%"=="y" pip install -r requirements-telegram.txt -q
-
-set /p install_office=Install Office support - Word/Excel/PowerPoint? [y/n]: 
-if /i "%install_office%"=="y" pip install -r requirements-office.txt -q
-
-set /p install_images=Install image editing support? [y/n]: 
-if /i "%install_images%"=="y" pip install -r requirements-images.txt -q
-
-set /p install_files=Install safe file-to-trash support? [y/n]: 
-if /i "%install_files%"=="y" pip install -r requirements-files.txt -q
-
-echo.
-echo === Installation complete ===
-echo.
-echo Next steps:
-echo   1. Set your Claude API key (or just run Jarvis.bat and paste it when asked)
-echo   2. Run check_setup.py to verify everything
-echo   3. Double-click Jarvis.bat to start
+echo ============================================
+echo   Installation Complete!
+echo   Now run: SETUP_AND_RUN.bat
+echo ============================================
 echo.
 pause
 exit /b 0
 
-:nopython
-echo ERROR: Python was not found. Please install Python 3.10+ first.
-echo See INSTALL.md for download instructions.
+:venvfail
+echo ERROR: Failed to create virtual environment.
 pause
 exit /b 1
 
 :installfailed
-echo ERROR: Failed to install core requirements. Check your internet connection.
+echo ERROR: Failed to install packages. Check internet connection.
 pause
 exit /b 1

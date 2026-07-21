@@ -205,7 +205,7 @@ CREATE_EXCEL_SCHEMA = {
             "relative_path": {"type": "string", "description": "المسار النسبي، مثال: 'data/sheet1.xlsx'"},
             "sheet_name": {"type": "string"},
             "headers": {"type": "array", "items": {"type": "string"}},
-            "rows": {"type": "array", "items": {"type": "array"}, "description": "كل صف عبارة عن مصفوفة قيم"},
+            "rows": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}, "description": "كل صف عبارة عن مصفوفة قيم"},
         },
         "required": ["relative_path", "sheet_name", "headers", "rows"],
     },

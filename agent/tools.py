@@ -77,6 +77,10 @@ try:
             "list_printers": lambda **kw: system_control.list_printers(**kw),
             "set_default_printer": lambda **kw: system_control.set_default_printer(**kw),
             "print_file": lambda **kw: system_control.print_file(**kw),
+            "take_screenshot": lambda **kw: system_control.take_screenshot(**kw),
+            "mouse_click": lambda **kw: system_control.mouse_click(**kw),
+            "type_text": lambda **kw: system_control.type_text(**kw),
+            "press_key": lambda **kw: system_control.press_key(**kw),
         }
     )
     TOOL_SCHEMAS.extend(
@@ -85,6 +89,10 @@ try:
             system_control.LIST_PRINTERS_SCHEMA,
             system_control.SET_DEFAULT_PRINTER_SCHEMA,
             system_control.PRINT_FILE_SCHEMA,
+            system_control.TAKE_SCREENSHOT_SCHEMA,
+            system_control.MOUSE_CLICK_SCHEMA,
+            system_control.TYPE_TEXT_SCHEMA,
+            system_control.PRESS_KEY_SCHEMA,
         ]
     )
 except ImportError:
@@ -165,12 +173,28 @@ except ImportError:
     pass
 
 
+SAFETY_CONFIRM_CALLBACK = None
+TIMELINE_LOG_CALLBACK = None
+
 def execute_tool(name: str, tool_input: dict[str, Any]) -> str:
-    """بينفذ أداة بالاسم، ولو حصل استثناء بيرجعه كنص بدل ما يوقع البرنامج كله.
-    ده مهم جدًا: أي خطأ في أداة لازم يترجع لـ Claude كـ tool_result عادي
-    عشان يقدر يتعامل معاه ويجرب طريقة تانية، مش يكسر الحلقة كلها."""
+    """بينفذ أداة بالاسم. لو كانت خطيرة، يطلب تأكيد المستخدم قبل التنفيذ."""
+    if TIMELINE_LOG_CALLBACK:
+        TIMELINE_LOG_CALLBACK(f"Executing task: {name}", "⚙️")
+        
     if name not in TOOL_REGISTRY:
+        if TIMELINE_LOG_CALLBACK: TIMELINE_LOG_CALLBACK(f"Failed: {name} not found", "❌")
         return f"خطأ: الأداة '{name}' مش موجودة في السجل."
+    
+    # جدار الأمان للأدوات الخطيرة
+    DANGEROUS_TOOLS = ["shutdown_computer", "restart_computer"]
+    if name in DANGEROUS_TOOLS:
+        if SAFETY_CONFIRM_CALLBACK:
+            approved = SAFETY_CONFIRM_CALLBACK(name, str(tool_input))
+            if not approved:
+                return f"تم رفض التنفيذ. المستخدم رفض العملية لأسباب أمنية."
+        else:
+            return "تم الرفض. لم يتم العثور على واجهة التأكيد الأمنية (Safety Callback)."
+
     try:
         return TOOL_REGISTRY[name](**tool_input)
     except Exception as exc:
