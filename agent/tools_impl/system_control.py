@@ -8,15 +8,31 @@ system_control.py
 import os
 import subprocess
 import pyautogui
-import PIL.ImageGrab
+from PIL import ImageGrab
 import time
 import tempfile
 
 # القائمة التي تحدد الأدوات التي تتطلب تأكيد
 REQUIRES_CONFIRMATION = [
     "shutdown_computer",
-    "restart_computer"
+    "restart_computer",
+    "run_terminal_command"
 ]
+
+RUN_TERMINAL_COMMAND_SCHEMA = {
+    "name": "run_terminal_command",
+    "description": "ينفذ أوامر في موجه الأوامر (Terminal/CMD). أداة أساسية لتثبيت مكتبات بايثون عبر 'pip install' أو تنفيذ أي أوامر نظام بدون أن تطلب من المستخدم فعل ذلك يدوياً. سيتم تنفيذ الأمر وجمع النتيجة.",
+    "parameters": {
+        "type": "OBJECT",
+        "properties": {
+            "command": {
+                "type": "STRING",
+                "description": "الأمر المراد تنفيذه (مثل: 'pip install python-docx' أو 'dir')."
+            }
+        },
+        "required": ["command"]
+    }
+}
 
 SHUTDOWN_SCHEMA = {
     "name": "shutdown_computer",
@@ -125,7 +141,7 @@ def print_file(file_path=""):
 
 def take_screenshot() -> str:
     """Takes a screenshot of the entire screen and returns it for visual context."""
-    screenshot = PIL.ImageGrab.grab()
+    screenshot = ImageGrab.grab()
     temp_dir = tempfile.gettempdir()
     file_path = os.path.join(temp_dir, f"jarvis_vision_{int(time.time())}.png")
     screenshot.save(file_path, "PNG")
@@ -157,3 +173,18 @@ def press_key(key: str) -> str:
         return f"Pressed key: '{key}'"
     except Exception as e:
         return f"Failed to press key: {e}"
+
+def run_terminal_command(command: str) -> str:
+    """Runs a shell command and returns output. For pip install, etc."""
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=120, encoding='utf-8', errors='replace')
+        output = result.stdout
+        if result.stderr:
+            output += f"\n[Errors/Warnings]:\n{result.stderr}"
+        if not output.strip():
+            output = "[No output]"
+        return f"Command executed.\nExit code: {result.returncode}\nOutput:\n{output}"
+    except subprocess.TimeoutExpired:
+        return "Command timed out after 120 seconds."
+    except Exception as e:
+        return f"Failed to execute command: {str(e)}"

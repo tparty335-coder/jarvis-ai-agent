@@ -81,6 +81,7 @@ try:
             "mouse_click": lambda **kw: system_control.mouse_click(**kw),
             "type_text": lambda **kw: system_control.type_text(**kw),
             "press_key": lambda **kw: system_control.press_key(**kw),
+            "run_terminal_command": lambda **kw: system_control.run_terminal_command(**kw),
         }
     )
     TOOL_SCHEMAS.extend(
@@ -93,6 +94,7 @@ try:
             system_control.MOUSE_CLICK_SCHEMA,
             system_control.TYPE_TEXT_SCHEMA,
             system_control.PRESS_KEY_SCHEMA,
+            system_control.RUN_TERMINAL_COMMAND_SCHEMA,
         ]
     )
 except ImportError:
